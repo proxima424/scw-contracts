@@ -163,7 +163,7 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
       smartWalletImp.address
     );
 
-    await walletFactory.deployCounterFactualAccount(walletOwnerAddress, 0);
+    // await walletFactory.deployCounterFactualAccount(walletOwnerAddress, 0);
 
     const expected = await walletFactory.getAddressForCounterFactualAccount(
       walletOwnerAddress,
@@ -271,11 +271,16 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
         .connect(deployer)
         .transfer(walletAddress, ethers.utils.parseEther("100"));
 
-      await depositorSigner.sendTransaction({
+      /* await depositorSigner.sendTransaction({
         from: await depositorSigner.getAddress(),
         to: walletAddress,
         value: ethers.utils.parseEther("5"),
       });
+
+      const userSCW: any = await ethers.getContractAt(
+        "contracts/smart-contract-wallet/SmartAccount.sol:SmartAccount",
+        walletAddress
+      );
 
       const userOpPrior = await fillAndSign(
         {
@@ -299,7 +304,7 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
         await offchainSigner.getAddress()
       );
 
-      console.log("approval successful");
+      console.log("approval successful"); */
 
       const owner = await walletOwner.getAddress();
       const AccountFactory = await ethers.getContractFactory(
@@ -314,20 +319,20 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
         {
           sender: walletAddress,
           verificationGasLimit: 5000000,
-          // initCode: hexConcat([walletFactory.address, deploymnetData]),
+          initCode: hexConcat([walletFactory.address, deploymnetData]),
           paymasterAndData: ethers.utils.hexConcat([
             paymasterAddress,
             ethers.utils.hexlify(1).slice(0, 4),
             encodePaymasterData(token.address, MOCK_FX),
             "0x" + "00".repeat(65),
           ]),
-          // nonce: 0,
-          /* callData: encodeERC20Approval(
+          nonce: 0,
+          callData: encodeERC20Approval(
             userSCW,
             token,
             paymasterAddress,
             ethers.constants.MaxUint256
-          ), */
+          ),
         },
         walletOwner,
         entryPoint,
