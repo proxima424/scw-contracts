@@ -79,7 +79,7 @@ export const encodeERC20Approval = (
   ]);
 };
 
-describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20", function () {
+describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function () {
   let entryPoint: EntryPoint;
   let entryPointStatic: EntryPoint;
   let depositorSigner: Signer;
@@ -164,6 +164,7 @@ describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20
     );
 
     await walletFactory.deployCounterFactualAccount(walletOwnerAddress, 0);
+
     const expected = await walletFactory.getAddressForCounterFactualAccount(
       walletOwnerAddress,
       0
@@ -183,7 +184,7 @@ describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20
       .addStake(0, { value: parseEther("2") });
     console.log("paymaster staked"); */
 
-    await entryPoint.depositTo(paymasterAddress, { value: parseEther("1") });
+    await entryPoint.depositTo(paymasterAddress, { value: parseEther("2") });
 
     // const resultSet = await entryPoint.getDepositInfo(paymasterAddress);
     // console.log("deposited state ", resultSet);
@@ -261,7 +262,16 @@ describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20
     }); */
 
     it("succeed with valid signature and valid erc20 approval", async () => {
-      await depositorSigner.sendTransaction({
+      const userSCW: any = await ethers.getContractAt(
+        "contracts/smart-contract-wallet/SmartAccount.sol:SmartAccount",
+        walletAddress
+      );
+
+      await token
+        .connect(deployer)
+        .transfer(walletAddress, ethers.utils.parseEther("100"));
+
+      /* await depositorSigner.sendTransaction({
         from: await depositorSigner.getAddress(),
         to: walletAddress,
         value: ethers.utils.parseEther("5"),
@@ -289,38 +299,48 @@ describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20
         "nonce"
       );
 
-      await token
-        .connect(deployer)
-        .transfer(walletAddress, ethers.utils.parseEther("100"));
-
       await entryPoint.handleOps(
         [userOpPrior],
         await offchainSigner.getAddress()
       );
 
-      console.log("approval successful");
+      console.log("approval successful"); */
+
+      const owner = await walletOwner.getAddress();
+      const AccountFactory = await ethers.getContractFactory(
+        "SmartAccountFactory"
+      );
+      const deploymnetData = AccountFactory.interface.encodeFunctionData(
+        "deployCounterFactualAccount",
+        [owner, 0]
+      );
 
       const userOp1 = await fillAndSign(
         {
           sender: walletAddress,
-          verificationGasLimit: 200000,
+          verificationGasLimit: 5000000,
+          // initCode: hexConcat([walletFactory.address, deploymnetData]),
           paymasterAndData: ethers.utils.hexConcat([
             paymasterAddress,
             ethers.utils.hexlify(1).slice(0, 4),
             encodePaymasterData(token.address, MOCK_FX),
             "0x" + "00".repeat(65),
           ]),
-          /* callData: encodeERC20Approval(
+          // nonce: 0,
+          callData: encodeERC20Approval(
             userSCW,
             token,
             paymasterAddress,
             ethers.constants.MaxUint256
-          ), */
+          ),
         },
         walletOwner,
         entryPoint,
         "nonce"
       );
+
+      console.log("userOp");
+      console.log(userOp1);
 
       const hash = await sampleTokenPaymaster.getHash(
         userOp1,
@@ -374,6 +394,9 @@ describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20
         "fees paid in native ",
         receipt.effectiveGasPrice.mul(receipt.gasUsed).toString()
       );
+
+      console.log("gas used ");
+      console.log(receipt.gasUsed.toNumber());
 
       const postBalance = await token.balanceOf(
         await offchainSigner.getAddress()

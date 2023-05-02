@@ -285,6 +285,9 @@ describe("EntryPoint with AdvancedVerifyingPaymaster (stackup) : Paying in ERC20
         receipt.effectiveGasPrice.mul(receipt.gasUsed).toString()
       );
 
+      console.log("gas used ");
+      console.log(receipt.gasUsed.toNumber());
+
       const postBalance = await token.balanceOf(
         await offchainSigner.getAddress()
       );
