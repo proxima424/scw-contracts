@@ -14,12 +14,20 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@account-abstraction/contracts/core/Helpers.sol" as Helpers;
 import {TokenPaymasterErrors} from "../../common/Errors.sol";
 
-// todo add title and author
-// todo add nonReentrant where applicable
-// todo add revert codes
+// todo add revert codes in errors. structure errors.sol
 // todo add try and catch for certain flows (call/static call and if else based on success and fallback)
 // todo formal verification
+// todo add and review natspecs
 
+// Biconomy Token Paymaster
+/**
+ * A token-based paymaster that accepts token deposits for supported ERC20 tokens.
+ * It is an extension of VerifyingPaymaster which trusts external signer to authorize the transaction, but also with an ability to withdraw tokens.
+ * Optionally a safe guard deposit may be used in future versions.
+ * validatePaymasterUserOp doesn't call any external contracts but currently relies on exchangeRate passed externally.
+ * based on the exchangeRate and requiredPrefund validation stage ensure the account has enough token allowance and balance, hence only checking referenced state.
+ * All withdrawn tokens will be transferred to dynamic fee receiver address.
+ */
 contract BiconomyTokenPaymaster is
     BasePaymaster,
     ReentrancyGuard,
@@ -29,6 +37,7 @@ contract BiconomyTokenPaymaster is
     using UserOperationLib for UserOperation;
     using SafeERC20 for IERC20;
 
+    // todo: Marked for removal
     // In case we also add gasless aspect and more (hybrid) (based on paymasterAndData)
     /*enum PaymentMode {
       GASLESS,
@@ -48,34 +57,26 @@ contract BiconomyTokenPaymaster is
         IERC20 feeToken;
         uint256 exchangeRate;
         uint256 fee;
-        // SponsoringMode mode;
+        // PaymentMode mode; //todo: cleanup
         bytes signature;
     }
 
     // Gas used in EntryPoint._handlePostOp() method (including this#postOp() call)
-    uint256 private unaccountedEPGasOverhead;
+    uint256 private UNACCOUNTED_COST = 45000; // TBD
 
-    // Review it's basically same as above
-    // calculated cost of the postOp
-    uint256 private constant COST_OF_POST = 40000; // TBD
-
-    // (Potentially) Always rely on verifyingSigner..
+    // Always rely on verifyingSigner..
     address public verifyingSigner;
 
+    // receiver of withdrawn fee tokens
     address public feeReceiver;
 
-    // todo: marked for removal
-    // RAW early notes
-    // paymasterAndData would not have exchange mode
-    // paymasterAndData: [paymaster, token, validUntil, validAfter, fee, exchangeRate, useOracle, /*mode,*/ signature] ...
-    // does it need maxCost after signature offset?
-    // it would also need fee (flat amount in no of tokens we are charging / would be USD value)
-
-    // todo: once everything is clear define/ review offsets
+    // review offsets and define more if needed
+    // others in between if we just do concat and not abi.encode
     uint256 private constant VALID_PND_OFFSET = 21;
-    // Others in between if we just do concat and not abi.encode
+
     uint256 private constant SIGNATURE_OFFSET = 181;
 
+    // if we make use of validateConstructor
     // account implementation defines approval check method in deployment transaaction but binds to a wallet
     // address public immutable smartAccountFactory;
 
@@ -136,7 +137,6 @@ contract BiconomyTokenPaymaster is
             sstore(verifyingSigner.slot, _verifyingSigner)
         }
         oracleAggregator = _oracleAggregator;
-        unaccountedEPGasOverhead = 40000; // TBD
         feeReceiver = address(this); // initialize with self (could also be _owner)
     }
 
@@ -158,6 +158,7 @@ contract BiconomyTokenPaymaster is
     }
 
     // notice payable in setVerifyingSigner
+    // todo review payable in onlyOwner methods from GO POV
     function setOracleAggregator(
         address _newOracleAggregator
     ) external payable onlyOwner {
@@ -192,15 +193,15 @@ contract BiconomyTokenPaymaster is
     }
 
     function setUnaccountedEPGasOverhead(uint256 value) external onlyOwner {
-        uint256 oldValue = unaccountedEPGasOverhead;
-        unaccountedEPGasOverhead = value;
+        uint256 oldValue = UNACCOUNTED_COST;
+        UNACCOUNTED_COST = value;
         emit EPGasOverheadChanged(oldValue, value);
     }
 
     /**
      * add a deposit for this paymaster, used for paying for transaction fees
      */
-    function deposit() public payable virtual override {
+    function deposit() public payable virtual override nonReentrant {
         IEntryPoint(entryPoint).depositTo{value: msg.value}(address(this));
     }
 
@@ -223,6 +224,10 @@ contract BiconomyTokenPaymaster is
     function isSupportedToken(
         address _token
     ) external view virtual returns (bool) {
+        return _isSupportedToken(_token);
+    }
+
+    function _isSupportedToken(address _token) private view returns (bool) {
         return supportedTokens[_token];
     }
 
@@ -250,8 +255,8 @@ contract BiconomyTokenPaymaster is
         IERC20 token,
         address target,
         uint256 amount
-    ) public {
-        require(owner() == msg.sender, "only owner can withdraw tokens");
+    ) public nonReentrant {
+        require(owner() == msg.sender, "only owner can withdraw tokens"); // add revert code
         token.safeTransfer(target, amount);
     }
 
@@ -311,7 +316,6 @@ contract BiconomyTokenPaymaster is
         uint256 tokenRequiredPreFund
     ) internal view {
         address factory = address(bytes20(userOp.initCode));
-
         // checking allowance being given in first userOp for an account would depend on implementation of factory as well
     }
 
@@ -333,11 +337,11 @@ contract BiconomyTokenPaymaster is
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
         // make sure that verificationGasLimit is high enough to handle postOp
         require(
-            userOp.verificationGasLimit > COST_OF_POST,
+            userOp.verificationGasLimit > UNACCOUNTED_COST,
             "TokenPaymaster: gas too low for postOp"
         );
 
-        // could be just PaymasterData based on implementation of parsePaymasterAndData
+        // todo: in this method try to resolve stack too deep (though via-ir is good enough)
         (
             ExchangeRateSource priceSource,
             uint48 validUntil,
@@ -348,6 +352,7 @@ contract BiconomyTokenPaymaster is
             bytes calldata signature
         ) = parsePaymasterAndData(userOp.paymasterAndData);
 
+        // review
         // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
         if (signature.length != 65)
             revert InvalidPaymasterSignatureLength(signature.length);
@@ -376,12 +381,12 @@ contract BiconomyTokenPaymaster is
         address account = userOp.getSender();
         uint256 gasPriceUserOp = userOp.gasPrice();
 
-        // if (feeToken != address(0)) {
+        require(
+            _isSupportedToken(feeToken),
+            "TokenPaymaster: token is not supported as fee token"
+        );
 
-        // todo check if the token is supported (and skip 0 address check)
-        // review revert if unsuppported
-
-        uint256 costOfPost = userOp.gasPrice() * COST_OF_POST; // unaccountedEPGasOverhead
+        uint256 costOfPost = userOp.gasPrice() * UNACCOUNTED_COST; // unaccountedEPGasOverhead
 
         // This model assumes irrespective of priceSource exchangeRate is always sent from outside
         // for below checks you would either need maxCost or some exchangeRate
@@ -411,7 +416,6 @@ contract BiconomyTokenPaymaster is
             fee,
             gasPriceUserOp
         );
-        // }
 
         return (
             context,
@@ -449,7 +453,8 @@ contract BiconomyTokenPaymaster is
         }
 
         uint256 actualTokenCost = ((actualGasCost +
-            (COST_OF_POST * gasPriceUserOp)) * effectiveExchangeRate) / 1e18;
+            (UNACCOUNTED_COST * gasPriceUserOp)) * effectiveExchangeRate) /
+            1e18;
         if (mode != PostOpMode.postOpReverted) {
             // review if below silently fails should notify in event accordingly
             feeToken.safeTransferFrom(
@@ -483,9 +488,6 @@ contract BiconomyTokenPaymaster is
             uint256 fee,
             bytes calldata signature
         )
-    // OR
-
-    // PaymasterData memory
     {
         priceSource = ExchangeRateSource(
             uint8(
@@ -497,7 +499,5 @@ contract BiconomyTokenPaymaster is
             (uint48, uint48, address, uint256, uint256)
         );
         signature = paymasterAndData[SIGNATURE_OFFSET:];
-
-        // return PaymasterData(priceSource, validUntil, validAfter, feeToken, exchangeRate, fee, /*mode,*/ signature);
     }
 }
