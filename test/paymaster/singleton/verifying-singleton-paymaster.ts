@@ -36,18 +36,14 @@ describe("EntryPoint with VerifyingPaymaster Singleton", function () {
   let entryPointStatic: EntryPoint;
   let depositorSigner: Signer;
   let walletOwner: Signer;
-  let proxyPaymaster: Contract;
   let walletAddress: string, paymasterAddress: string;
   let ethersSigner;
 
   let offchainSigner: Signer, deployer: Signer;
 
   let verifyingSingletonPaymaster: VerifyingSingletonPaymaster;
-  let verifyPaymasterFactory: VerifyingPaymasterFactory;
-  let smartWalletImp: SmartWallet;
-  let maliciousWallet: MaliciousAccount2;
-  let walletFactory: WalletFactory;
-  let callBackHandler: DefaultCallbackHandler;
+  let smartWalletImp: SmartAccount;
+  let walletFactory: SmartAccountFactory;
   const abi = ethers.utils.defaultAbiCoder;
 
   beforeEach(async function () {
@@ -70,15 +66,7 @@ describe("EntryPoint with VerifyingPaymaster Singleton", function () {
         offchainSignerAddress
       );
 
-    callBackHandler = await new DefaultCallbackHandler__factory(
-      deployer
-    ).deploy();
-
     smartWalletImp = await new SmartAccount__factory(deployer).deploy(
-      entryPoint.address
-    );
-
-    maliciousWallet = await new MaliciousAccount2__factory(deployer).deploy(
       entryPoint.address
     );
 
