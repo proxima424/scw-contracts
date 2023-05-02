@@ -374,9 +374,7 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
 
       console.log("required prefund ", requiredPrefund.toString());
 
-      const initBalance = await token.balanceOf(
-        await offchainSigner.getAddress()
-      );
+      const initBalance = await token.balanceOf(paymasterAddress);
       console.log("fee receiver token balance before ", initBalance.toString());
 
       const preTokenBalanceForAccount = await token.balanceOf(walletAddress);
@@ -398,9 +396,7 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
       console.log("gas used ");
       console.log(receipt.gasUsed.toNumber());
 
-      const postBalance = await token.balanceOf(
-        await offchainSigner.getAddress()
-      );
+      const postBalance = await token.balanceOf(paymasterAddress);
       console.log("fee receiver token balance after ", postBalance.toString());
 
       const postTokenBalanceForAccount = await token.balanceOf(walletAddress);
