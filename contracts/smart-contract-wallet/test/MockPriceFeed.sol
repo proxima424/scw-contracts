@@ -19,6 +19,10 @@ contract MockPriceFeed {
         ); // usdc usd
     }
 
+    function description() public view returns (string memory) {
+        return "USDC / MATIC";
+    }
+
     function decimals() public view returns (uint8) {
         return 18;
     }
