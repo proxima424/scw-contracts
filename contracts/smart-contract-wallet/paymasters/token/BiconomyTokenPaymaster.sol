@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@account-abstraction/contracts/core/Helpers.sol" as Helpers;
 import {TokenPaymasterErrors} from "../../common/Errors.sol";
+import "hardhat/console.sol";
 
 // todo add revert codes in errors. structure errors.sol
 // todo add try and catch for certain flows (call/static call and if else based on success and fallback)
@@ -390,8 +391,10 @@ contract BiconomyTokenPaymaster is
             exchangeRate) / 10 ** 18;
 
         if (userOp.initCode.length != 0) {
+            console.log("account is not deployed");
             _validateConstructor(userOp, feeToken, tokenRequiredPreFund + fee);
         } else {
+            console.log("checking the allowance here");
             require(
                 IERC20(feeToken).allowance(account, address(this)) >=
                     (tokenRequiredPreFund + fee),
@@ -453,11 +456,13 @@ contract BiconomyTokenPaymaster is
             1e18;
         if (mode != PostOpMode.postOpReverted) {
             // review if below silently fails should notify in event accordingly
+            console.log("transferring ERC20");
             feeToken.safeTransferFrom(
                 account,
                 feeReceiver,
                 actualTokenCost + fee
             );
+            console.log("success");
             emit TokenPaymasterOperation(
                 account,
                 address(feeToken),
