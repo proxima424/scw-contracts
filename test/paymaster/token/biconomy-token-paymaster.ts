@@ -12,8 +12,6 @@ import {
   SmartAccountFactory,
   SmartAccountFactory__factory,
   EntryPoint__factory,
-  StackupVerifyingPaymaster,
-  StackupVerifyingPaymaster__factory,
   TestToken,
   MockToken,
   MockPriceFeed,
@@ -191,76 +189,6 @@ describe("EntryPoint with Biconomy Token Paymaster : Paying in ERC20", function 
   });
 
   describe("#validatePaymasterUserOp", () => {
-    /* it("succeed with valid signature (token address random 0x11111111....)", async () => {
-      const userOp1 = await fillAndSign(
-        {
-          sender: walletAddress,
-          verificationGasLimit: 200000,
-          paymasterAndData: ethers.utils.hexConcat([
-            paymasterAddress,
-            ethers.utils.hexlify(1).slice(0, 4),
-            encodePaymasterData(MOCK_ERC20_ADDR, MOCK_FX),
-            "0x" + "00".repeat(65),
-          ]),
-        },
-        walletOwner,
-        entryPoint,
-        "nonce"
-      );
-
-      console.log("userOp1");
-      console.log(userOp1);
-      console.log(ethers.utils.hexlify(1).slice(2, 4));
-
-      const hash = await sampleTokenPaymaster.getHash(
-        userOp1,
-        ethers.utils.hexlify(1).slice(2, 4),
-        MOCK_VALID_UNTIL,
-        MOCK_VALID_AFTER,
-        MOCK_ERC20_ADDR,
-        MOCK_FX,
-        MOCK_FEE
-      );
-      console.log("hash");
-      console.log(hash);
-
-      const sig = await offchainSigner.signMessage(arrayify(hash));
-      console.log(sig);
-      const userOp = await fillAndSign(
-        {
-          ...userOp1,
-          paymasterAndData: ethers.utils.hexConcat([
-            paymasterAddress,
-            ethers.utils.hexlify(1).slice(0, 4),
-            encodePaymasterData(MOCK_ERC20_ADDR, MOCK_FX),
-            sig,
-          ]),
-        },
-        walletOwner,
-        entryPoint,
-        "nonce"
-      );
-      const res = await entryPoint.callStatic
-        .simulateValidation(userOp)
-        .catch(simulationResultCatch);
-      expect(res.returnInfo.sigFailed).to.be.false;
-      expect(res.returnInfo.validAfter).to.equal(
-        ethers.BigNumber.from(MOCK_VALID_AFTER)
-      );
-      expect(res.returnInfo.validUntil).to.equal(
-        ethers.BigNumber.from(MOCK_VALID_UNTIL)
-      );
-      expect(res.returnInfo.paymasterContext).to.not.equal("0x");
-
-      console.log("userOp is");
-      console.log(userOp);
-
-      await entryPoint.handleOps([userOp], await offchainSigner.getAddress());
-      await expect(
-        entryPoint.handleOps([userOp], await offchainSigner.getAddress())
-      ).to.be.reverted;
-    }); */
-
     it("succeed with valid signature and valid erc20 approval", async () => {
       const userSCW: any = await ethers.getContractAt(
         "contracts/smart-contract-wallet/SmartAccount.sol:SmartAccount",

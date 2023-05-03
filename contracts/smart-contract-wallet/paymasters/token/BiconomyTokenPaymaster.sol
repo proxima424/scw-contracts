@@ -179,11 +179,7 @@ contract BiconomyTokenPaymaster is
         assembly {
             sstore(feeReceiver.slot, _newFeeReceiver)
         }
-        emit OracleAggregatorChanged(
-            oldFeeReceiver,
-            _newFeeReceiver,
-            msg.sender
-        );
+        emit FeeReceiverChanged(oldFeeReceiver, _newFeeReceiver, msg.sender);
     }
 
     function setTokenAllowed(address _token) external payable onlyOwner {
