@@ -2,10 +2,13 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./IOracleAggregator.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "hardhat/console.sol";
 
-contract OracleAggregator is Ownable {
+/**
+ * @title Primary Oracle Aggregator contract used to maintain price feeds for chainlink supported tokens.
+ */
+contract ChainlinkOracleAggregator is Ownable, IOracleAggregator {
     struct TokenInfo {
         /* Number of decimals represents the precision of the price returned by the feed. For example, 
      a price of $100.50 might be represented as 100500000000 in the contract, with 9 decimal places 
@@ -19,6 +22,17 @@ contract OracleAggregator is Ownable {
 
     mapping(address => TokenInfo) internal tokensInfo;
 
+    constructor(address _owner) {
+        _transferOwnership(_owner);
+    }
+
+    /**
+     * @dev set price feed information for specific feed
+     * @param callAddress price feed / derived price feed address to call
+     * @param decimals decimals (precision) defined in this price feed
+     * @param callData function selector which will be used to query price data
+     * @param signed if the feed may return result as signed integrer
+     */
     function setTokenOracle(
         address token,
         address callAddress,
@@ -40,25 +54,36 @@ contract OracleAggregator is Ownable {
         tokensInfo[token].dataSigned = signed;
     }
 
+    /**
+     * @dev query deciamls used by set feed for specific token
+     * @param token ERC20 token address
+     */
     function getTokenOracleDecimals(
         address token
     ) external view returns (uint8 _tokenOracleDecimals) {
         _tokenOracleDecimals = tokensInfo[token].decimals;
     }
 
+    /**
+     * @dev query price feed
+     * @param token ERC20 token address
+     */
     function getTokenPrice(
         address token
     ) external view returns (uint256 tokenPrice) {
-        // token / eth
+        // usually token / native (depends on price feed)
         tokenPrice = _getTokenPrice(token);
     }
 
-    // exchangeRate basically
-    function getTokenValueOfOneEth(
+    /**
+     * @dev exchangeRate : each aggregator implements this method based on how it sources the quote/price
+     * @notice here it is token / native sourced from chainlink so in order to get defined exchangeRate we inverse the feed
+     * @param token ERC20 token address
+     */
+    function getTokenValueOfOneNativeToken(
         address token
     ) external view virtual returns (uint256 exchangeRate) {
         // we'd actually want eth / token
-        console.log("here");
         uint256 tokenPriceUnadjusted = _getTokenPrice(token);
         uint8 _tokenOracleDecimals = tokensInfo[token].decimals;
         exchangeRate =
