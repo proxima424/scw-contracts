@@ -12,3 +12,6 @@ artifacts
 
 #ignore .DS_Store recursively
 .DS_Store
+
+# Foundry files
+out
